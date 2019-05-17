@@ -1,7 +1,9 @@
+#! /usr/local/bin/python3
 # This is the Twisted Get Poetry Now! client, version 1.0.
 
 # NOTE: This should not be used as the basis for production code.
 # It uses low-level Twisted APIs as a learning exercise.
+
 
 import datetime, errno, optparse, socket
 
@@ -11,28 +13,28 @@ from twisted.internet import main
 def parse_args():
     usage = """usage: %prog [options] [hostname]:port ...
 
-This is the Get Poetry Now! client, Twisted version 1.0.
-Run it like this:
+    This is the Get Poetry Now! client, Twisted version 1.0.
+    Run it like this:
 
-  python get-poetry.py port1 port2 port3 ...
+    python get-poetry.py port1 port2 port3 ...
 
-If you are in the base directory of the twisted-intro package,
-you could run it like this:
+    If you are in the base directory of the twisted-intro package,
+    you could run it like this:
 
-  python twisted-client-1/get-poetry.py 10001 10002 10003
+    python twisted-client-1/get-poetry.py 10001 10002 10003
 
-to grab poetry from servers on ports 10001, 10002, and 10003.
+    to grab poetry from servers on ports 10001, 10002, and 10003.
 
-Of course, there need to be servers listening on those ports
-for that to work.
-"""
+    Of course, there need to be servers listening on those ports
+    for that to work.
+    """
 
     parser = optparse.OptionParser(usage)
-
+    print("In parse args")
     _, addresses = parser.parse_args()
 
     if not addresses:
-        print parser.format_help()
+        print(parser.format_help())
         parser.exit()
 
     def parse_address(addr):
@@ -46,23 +48,39 @@ for that to work.
             parser.error('Ports must be integers.')
 
         return host, int(port)
+    
+    return list(map(parse_address, addresses))
 
-    return map(parse_address, addresses)
-
-
+def reactorStop():
+    from twisted.internet import reactor
+    reactor.stop()
+    
 class PoetrySocket(object):
 
     poem = ''
+    stopId = ''
 
+    def sockClose(self):
+        print("16 seconds have elapsed. Timing out...")
+        self.sock.close()
+    
     def __init__(self, task_num, address):
         self.task_num = task_num
         self.address = address
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect(address)
+        
+        try:
+            self.sock.connect(address)
+        except:
+            print("Server does not exist. Exiting...")
+            exit(1)
+            
+        
         self.sock.setblocking(0)
 
         # tell the Twisted reactor to monitor this socket for reading
         from twisted.internet import reactor
+        self.stopId = reactor.callLater(16, self.sockClose)
         reactor.addReader(self)
 
     def fileno(self):
@@ -94,18 +112,21 @@ class PoetrySocket(object):
                 if not bytesread:
                     break
                 else:
-                    bytes += bytesread
-            except socket.error, e:
+                    bytes += str(bytesread)
+            except socket.error as e:
                 if e.args[0] == errno.EWOULDBLOCK:
                     break
                 return main.CONNECTION_LOST
 
         if not bytes:
-            print 'Task %d finished' % self.task_num
+            print('Task ', self.task_num, ' finished')
+            stopId.cancel()
+            
             return main.CONNECTION_DONE
         else:
             msg = 'Task %d: got %d bytes of poetry from %s'
-            print  msg % (self.task_num, len(bytes), self.format_addr())
+            print("Task", self.task_num, "got ", len(bytes),
+                  " bytes from ", self.format_addr())
 
         self.poem += bytes
 
@@ -130,9 +151,9 @@ def poetry_main():
     elapsed = datetime.datetime.now() - start
 
     for i, sock in enumerate(sockets):
-        print 'Task %d: %d bytes of poetry' % (i + 1, len(sock.poem))
+        print('Task ', (i + 1), ': ', len(sock.poem), ' bytes of poetry')
 
-    print 'Got %d poems in %s' % (len(addresses), elapsed)
+    print('Got ', len(addresses), 'poems in', elapsed)
 
 
 if __name__ == '__main__':
