@@ -31,7 +31,7 @@ for that to work.
     _, addresses = parser.parse_args()
 
     if not addresses:
-        print parser.format_help()
+        print(parser.format_help())
         parser.exit()
 
     def parse_address(addr):
@@ -46,7 +46,7 @@ for that to work.
 
         return host, int(port)
 
-    return map(parse_address, addresses)
+    return list(map(parse_address, addresses))
 
 
 class PoetryProtocol(Protocol):
@@ -54,7 +54,7 @@ class PoetryProtocol(Protocol):
     poem = ''
 
     def dataReceived(self, data):
-        self.poem += data
+        self.poem += str(data)
 
     def connectionLost(self, reason):
         self.poemReceived(self.poem)
@@ -75,6 +75,8 @@ class PoetryClientFactory(ClientFactory):
         self.callback(poem)
 
     def clientConnectionFailed(self, connector, reason):
+        # Exercise 3
+        print("***Connection failed called**")
         self.errback(reason)
 
 
@@ -108,7 +110,8 @@ def poetry_main():
         poem_done()
 
     def poem_failed(err):
-        print >>sys.stderr, 'Poem failed:', err
+        # print >>sys.stderr, 'Poem failed:', err
+        print("Poem failed: ", err, file=sys.stderr)
         errors.append(err)
         poem_done()
 
@@ -116,14 +119,19 @@ def poetry_main():
         if len(poems) + len(errors) == len(addresses):
             reactor.stop()
 
+    def timeout():
+        print("16 seconds have elapsed so timing out")
+        reactor.stop()
+
     for address in addresses:
         host, port = address
         get_poetry(host, port, got_poem, poem_failed)
 
+    reactor.callLater(16, timeout)
     reactor.run()
 
     for poem in poems:
-        print poem
+        print(poem)
 
 
 if __name__ == '__main__':

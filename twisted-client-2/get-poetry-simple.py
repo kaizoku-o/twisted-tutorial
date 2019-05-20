@@ -31,7 +31,7 @@ for that to work.
     _, addresses = parser.parse_args()
 
     if not addresses:
-        print parser.format_help()
+        print(parser.format_help())
         parser.exit()
 
     def parse_address(addr):
@@ -46,7 +46,7 @@ for that to work.
 
         return host, int(port)
 
-    return map(parse_address, addresses)
+    return list(map(parse_address, addresses))
 
 
 class PoetryProtocol(Protocol):
@@ -54,7 +54,7 @@ class PoetryProtocol(Protocol):
     poem = ''
 
     def dataReceived(self, data):
-        self.poem += data
+        self.poem += str(data)
 
     def connectionLost(self, reason):
         self.poemReceived(self.poem)
@@ -67,9 +67,18 @@ class PoetryClientFactory(ClientFactory):
 
     protocol = PoetryProtocol # tell base class what proto to build
 
+    timeoutId = None
+
+    def stopReactor(self):
+        print("16 seconds have elapsed. Timing out...")
+        from twisted.internet import reactor
+        reactor.stop()
+
     def __init__(self, poetry_count):
         self.poetry_count = poetry_count
         self.poems = []
+        from twisted.internet import reactor
+        self.timeoutId = reactor.callLater(16, self.stopReactor)
 
     def poem_finished(self, poem=None):
         if poem is not None:
@@ -79,15 +88,18 @@ class PoetryClientFactory(ClientFactory):
 
         if self.poetry_count == 0:
             self.report()
-            from twisted.internet import reactor
-            reactor.stop()
+            if (self.timeoutId.active()):
+                self.timeoutId.cancel()
+                from twisted.internet import reactor
+                reactor.stop()
 
     def report(self):
         for poem in self.poems:
-            print poem
+            print(poem)
+
 
     def clientConnectionFailed(self, connector, reason):
-        print 'Failed to connect to:', connector.getDestination()
+        print('Failed to connect to:', connector.getDestination())
         self.poem_finished()
 
 
