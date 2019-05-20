@@ -105,7 +105,8 @@ def poetry_main():
         poems.append(poem)
 
     def poem_failed(err):
-        print >>sys.stderr, 'Poem failed:', err
+        print("Poem failed", err, file=sys.stderr)
+        # print >>sys.stderr, 'Poem failed:', err
         errors.append(err)
 
     def poem_done(_):
