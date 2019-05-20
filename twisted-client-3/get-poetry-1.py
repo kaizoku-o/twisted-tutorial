@@ -67,7 +67,7 @@ class PoetryClientFactory(ClientFactory):
 
     protocol = PoetryProtocol
 
-    def __init__(self, callback, errback):
+    def __init__(self, callback, errback, timeoutBack):
         self.callback = callback
         self.errback = errback
 
@@ -79,8 +79,11 @@ class PoetryClientFactory(ClientFactory):
         print("***Connection failed called**")
         self.errback(reason)
 
+    def timeoutExceptionCalled(self, connector, reason):
+        self.timeoutBack(reason)
 
-def get_poetry(host, port, callback, errback):
+
+def get_poetry(host, port, callback, errback, timeoutBack):
     """
     Download a poem from the given host and port and invoke
 
@@ -93,7 +96,7 @@ def get_poetry(host, port, callback, errback):
     instead, where err is a twisted.python.failure.Failure instance.
     """
     from twisted.internet import reactor
-    factory = PoetryClientFactory(callback, errback)
+    factory = PoetryClientFactory(callback, errback, timeoutBack)
     reactor.connectTCP(host, port, factory)
 
 
@@ -125,7 +128,7 @@ def poetry_main():
 
     for address in addresses:
         host, port = address
-        get_poetry(host, port, got_poem, poem_failed)
+        get_poetry(host, port, got_poem, poem_failed, timeout)
 
     reactor.callLater(16, timeout)
     reactor.run()
